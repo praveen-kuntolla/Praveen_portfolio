@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.npm-cache/
+coverage/
+*.tsbuildinfo
+artifacts/
+.env*
+.portfolio-uploads/
+.netlify/

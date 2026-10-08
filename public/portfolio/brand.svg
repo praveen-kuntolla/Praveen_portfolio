@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 540 960">
+  <!-- Generator: Adobe Illustrator 30.8.2, SVG Export Plug-In . SVG Version: 2.1.4 Build 7)  -->
+  <defs>
+    <style>
+      .st0 {
+        font-size: 14px;
+        letter-spacing: .29em;
+      }
+
+      .st0, .st1 {
+        font-family: ArialMT, Arial;
+      }
+
+      .st0, .st2 {
+        fill: #f4ebe2;
+      }
+
+      .st0, .st2, .st3 {
+        isolation: isolate;
+      }
+
+      .st2 {
+        font-family: Arial-Black, Arial;
+        font-size: 66px;
+        font-weight: 800;
+      }
+
+      .st3 {
+        fill: #ebe0d5;
+        font-size: 12px;
+        letter-spacing: .25em;
+      }
+
+      .st4 {
+        font-family: MyriadPro-Regular, 'Myriad Pro';
+      }
+
+      .st5 {
+        fill: #ba5c41;
+      }
+
+      .st6 {
+        fill: #2b2624;
+      }
+    </style>
+  </defs>
+  <rect class="st6" width="540" height="960"/>
+  <text class="st0" transform="translate(35 65)"><tspan x="0" y="0">FORM &amp; FEEL / BRAND STUDY</tspan></text>
+  <g>
+    <path class="st5" d="M172.5,245h0c42.8,0,77.5,34.7,77.5,77.5h0c0,42.8-34.7,77.5-77.5,77.5h0c-42.8,0-77.5-34.7-77.5-77.5h0c0-42.8,34.7-77.5,77.5-77.5Z"/>
+    <rect class="st5" x="270" y="245" width="155" height="155"/>
+    <rect class="st5" x="95" y="420" width="155" height="155"/>
+    <path class="st5" d="M347.5,420h0c42.8,0,77.5,34.7,77.5,77.5h0c0,42.8-34.7,77.5-77.5,77.5h0c-42.8,0-77.5-34.7-77.5-77.5h0c0-42.8,34.7-77.5,77.5-77.5Z"/>
+  </g>
+  <text class="st2" transform="translate(7.89 706.71)"><tspan x="0" y="0">GOOD THINGS</tspan></text>
+  <text class="st2" transform="translate(24.77 775)"><tspan x="0" y="0">TAKE SHAPE.</tspan></text>
+  <text class="st3" transform="translate(40 900)"><tspan class="st1" x="0" y="0">IDEAS INTO IDENTITIES. </tspan><tspan class="st4" x="213.02" y="0">↗</tspan></text>
+</svg>
