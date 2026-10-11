@@ -126,9 +126,9 @@ export function PublicPortfolio() {
     const response = await fetch('/api/media-library', { cache: 'no-store' });
     if (!response.ok) throw new Error('Media unavailable');
     const body = await response.json();
-    if (body.configured) {
+    if (body.configured && body.records.length) {
      next = applyPublishedMedia(next, body.records);
-     status = body.records.length ? '' : 'No published media yet. Please check back soon.';
+     status = '';
     }
    } catch {
     next = applyPublishedMedia(next, []);
