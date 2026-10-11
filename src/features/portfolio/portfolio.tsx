@@ -131,7 +131,6 @@ export function PublicPortfolio() {
      status = '';
     }
    } catch {
-    next = applyPublishedMedia(next, []);
     status = 'Media could not load. Refresh the page to retry.';
    }
    if (active && current === sequence) { setData(next); setError(contentError); setMediaStatus(status); }
