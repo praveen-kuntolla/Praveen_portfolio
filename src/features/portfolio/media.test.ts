@@ -1,16 +1,24 @@
 // @vitest-environment node
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
-import { vi } from 'vitest';
 import { join } from 'node:path';
 vi.mock('@/features/back-office/server',async importOriginal=>({...await importOriginal<typeof import('@/features/back-office/server')>(),requirePermission:vi.fn().mockResolvedValue({})}));
 import { POST } from '@/app/api/portfolio/media/route';
 import { GET } from '@/app/api/portfolio/media/[id]/route';
 import { mediaFailure } from './media-server';
 import { uploadLimits, validateSelectedFile, validateFieldUrl } from './media';
-let root:string;const previous=process.env.PORTFOLIO_UPLOAD_DIR;
-beforeAll(async()=>{root=await mkdtemp(join(process.cwd(),'.media-test-'));process.env.PORTFOLIO_UPLOAD_DIR=root;});
-afterAll(async()=>{if(previous===undefined)delete process.env.PORTFOLIO_UPLOAD_DIR;else process.env.PORTFOLIO_UPLOAD_DIR=previous;await rm(root,{recursive:true,force:true});});
+let root:string;
+beforeAll(async()=>{
+ root=await mkdtemp(join(process.cwd(),'.media-test-'));
+ // Netlify sets NETLIFY=true during builds. This suite verifies device filesystem
+ // storage, so keep it independent from the CI provider's hosted environment.
+ vi.stubEnv('NETLIFY','false');
+ vi.stubEnv('NETLIFY_BLOBS_CONTEXT','');
+ vi.stubEnv('PORTFOLIO_BLOBS_SITE_ID','');
+ vi.stubEnv('PORTFOLIO_BLOBS_TOKEN','');
+ vi.stubEnv('PORTFOLIO_UPLOAD_DIR',root);
+});
+afterAll(async()=>{vi.unstubAllEnvs();await rm(root,{recursive:true,force:true});});
 const request=(file:File,kind='document',origin='http://127.0.0.1:3000')=>{const body=new FormData();body.set('file',file);body.set('kind',kind);return new Request('http://127.0.0.1:3000/api/portfolio/media',{method:'POST',headers:{origin},body});};
 const get=(id:string,range?:string)=>GET(new Request('http://127.0.0.1:3000/api/portfolio/media/'+id,{headers:range?{range}:{}}),{params:Promise.resolve({id})});
 describe('device upload and retrieval',()=>{
