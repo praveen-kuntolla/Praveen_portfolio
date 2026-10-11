@@ -1,0 +1,16 @@
+'use client';
+import Link from 'next/link';
+import { useState, type FormEvent } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import './back-office.css';
+
+type Mode='login'|'signup'|'forgot'|'reset';
+const copy:Record<Mode,{title:string;button:string}>={login:{title:'Welcome back',button:'Log in'},signup:{title:'Request back-office access',button:'Create account'},forgot:{title:'Reset your password',button:'Send reset link'},reset:{title:'Choose a new password',button:'Update password'}};
+export function AuthForm({mode}:{mode:Mode}){
+ const router=useRouter();
+ const [email,setEmail]=useState('');const [password,setPassword]=useState('');const [show,setShow]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [message,setMessage]=useState('');
+ async function submit(event:FormEvent){event.preventDefault();setBusy(true);setError('');setMessage('');try{const response=await fetch('/api/back-office/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:mode,email,password})});const body=await response.json();if(!response.ok)throw new Error(body.error||'Authentication failed.');setMessage(body.message||'Success.');if(mode==='login')router.push('/studio/media');if(mode==='reset')setTimeout(()=>router.push('/studio/media'),700);}catch(failure){setError(failure instanceof Error?failure.message:'Authentication failed.');}finally{setBusy(false);}}
+ const needsEmail=mode!=='reset';const needsPassword=mode!=='forgot';
+ return <main className="bo-auth"><section className="bo-auth-card"><Link className="bo-brand" href="/">pk® <span>BACK OFFICE</span></Link><p className="bo-kicker">SECURE CREATIVE CONTROL</p><h1>{copy[mode].title}</h1>{mode==='signup'&&<p>Signing up creates a pending account. Access begins only after an administrator invitation or approval.</p>}{mode==='forgot'&&<p>Enter your account email. Supabase will send a secure reset link if it exists.</p>}<form onSubmit={submit}>{needsEmail&&<label>Email<input type="email" autoComplete={mode==='signup'?'email':'username'} required value={email} onChange={e=>setEmail(e.target.value)} /></label>}{needsPassword&&<label>Password<span className="bo-password"><input type={show?'text':'password'} autoComplete={mode==='signup'?'new-password':mode==='reset'?'new-password':'current-password'} minLength={6} maxLength={1024} required value={password} onChange={e=>setPassword(e.target.value)} /><button type="button" aria-label={show?'Hide password':'Show password'} onClick={()=>setShow(!show)}>{show?<EyeOff size={17}/>:<Eye size={17}/>}</button></span><small>At least 6 characters, or the stronger minimum configured in Supabase. Paste and password managers are supported.</small></label>}<button className="bo-primary" disabled={busy}>{busy?'Please wait…':copy[mode].button}</button></form>{error&&<p role="alert" className="bo-error">{error}</p>}{message&&<p role="status" className="bo-success">{message}</p>}<nav>{mode!=='login'&&<Link href="/studio/login">Log in</Link>}{mode==='login'&&<><Link href="/studio/signup">Create account</Link><Link href="/studio/forgot-password">Forgot password?</Link></>}</nav></section></main>;
+}

@@ -7,3 +7,4 @@ artifacts/
 .env*
 .portfolio-uploads/
 .netlify/
+!.env.example

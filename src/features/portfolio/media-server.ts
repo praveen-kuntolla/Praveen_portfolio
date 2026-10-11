@@ -1,3 +1,4 @@
+import { getContent, putContent, hostedStorage } from './content-store';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
@@ -22,11 +23,9 @@ export function detectType(bytes:Uint8Array, extension:string):string {
  return types[extension];
 }
 export function requireLocal(request:Request,write=false){
- const internal=new URL(request.url);let url:URL;try{url=new URL(`${internal.protocol}//${request.headers.get('host')||internal.host}`);}catch{throw new MediaError('Invalid upload host.',403);}
- // Next may reconstruct request.url using its internal localhost listener.
- // Compare Origin to the browser-facing Host, after restricting that host to loopback.
- if(!['127.0.0.1','localhost','[::1]'].includes(url.hostname))throw new MediaError('Device uploads are available only on this local portfolio server.',403);
- if(write && (request.headers.get('origin')!==url.origin || request.headers.get('sec-fetch-site')==='cross-site'))throw new MediaError('Upload must come from this portfolio’s own Back Office.',403);
+ // Read endpoints serve public media on both local and hosted deployments.
+ if(write)throw new MediaError('Use the authenticated upload endpoint.',403);
+ void request;
 }
 export async function boundedFormData(request:Request):Promise<FormData>{
  if(!request.headers.get('content-type')?.startsWith('multipart/form-data;'))throw new MediaError('Send the file using multipart/form-data.',415);
@@ -41,18 +40,22 @@ export async function storeMedia(file:File,kind:MediaKind):Promise<UploadMetadat
  const invalid=validateSelectedFile(file,kind);if(invalid)throw new MediaError(invalid,file.size>uploadLimits[kind]?413:415);
  const bytes=new Uint8Array(await file.arrayBuffer());const extension=file.name.split('.').at(-1)!.toLowerCase();const type=detectType(bytes,extension);
  if(file.type && file.type!=='application/octet-stream' && file.type!==type)throw new MediaError('The file’s content type does not match its contents.',415);
- const id=createHash('sha256').update(bytes).digest('hex')+'.'+(extension==='jpeg'?'jpg':extension);const root=uploadRoot();await mkdir(root,{recursive:true});
+ const id=createHash('sha256').update(bytes).digest('hex')+'.'+(extension==='jpeg'?'jpg':extension);const root=uploadRoot();
  const metadata:UploadMetadata={id,url:`/api/portfolio/media/${id}`,name:file.name.replace(/[\x00-\x1f\x7f]/g,'').slice(0,255),type,size:bytes.length,kind,createdAt:new Date().toISOString()};
+ if(hostedStorage()){await putContent('media/'+id,bytes,metadata);return metadata;}
+ await mkdir(root,{recursive:true});
  try{await writeFile(join(/* turbopackIgnore: true */ root,id),bytes,{flag:'wx'});}catch(error){if((error as NodeJS.ErrnoException).code!=='EEXIST')throw error;}
  try{await writeFile(join(/* turbopackIgnore: true */ root,id+'.json'),JSON.stringify(metadata),{flag:'wx'});}catch(error){if((error as NodeJS.ErrnoException).code!=='EEXIST')throw error;}
  return metadata;
 }
 export async function loadMedia(id:string){
  if(!/^[a-f0-9]{64}\.(png|jpg|gif|webp|mp4|webm|pdf|txt)$/.test(id))throw new MediaError('File not found.',404);
+ if(hostedStorage()){const stored=await getContent('media/'+id);if(!stored)throw new MediaError('File not found.',404);return {bytes:stored.bytes,metadata:stored.metadata as UploadMetadata};}
  try{const root=uploadRoot();const metadata=JSON.parse(await readFile(/* turbopackIgnore: true */ join(/* turbopackIgnore: true */ root,id+'.json'),'utf8')) as UploadMetadata;const bytes=await readFile(/* turbopackIgnore: true */ join(/* turbopackIgnore: true */ root,id));return {metadata,bytes};}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')throw new MediaError('File not found.',404);throw error;}
 }
 export function mediaFailure(error:unknown){
  if(error instanceof MediaError)return Response.json({error:error.message},{status:error.status});
+ if(error instanceof Error&&'status'in error&&Number.isInteger((error as {status:number}).status))return Response.json({error:error.message},{status:(error as {status:number}).status});
  const code=(error as NodeJS.ErrnoException)?.code;
  if(['EACCES','EPERM','EROFS'].includes(code??''))return Response.json({error:'Upload storage is not writable. Check folder permissions.'},{status:503});
  if(code==='ENOSPC')return Response.json({error:'The device has no free space for this upload.'},{status:507});

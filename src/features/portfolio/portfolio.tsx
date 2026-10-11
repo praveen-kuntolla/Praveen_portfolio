@@ -1,4 +1,7 @@
 'use client';
+import { videoEmbedUrl } from './video-links';
+import { imageDisplayUrl } from './image-links';
+import { applyPublishedMedia } from '@/features/media-library/model';
 /* User-editable URLs and native media need ordinary img elements and graceful fallbacks. */
 /* eslint-disable @next/next/no-img-element, @next/next/no-page-custom-font */
 import Link from 'next/link';
@@ -8,7 +11,7 @@ import { defaultPortfolio, LIVE_KEY, parsePortfolio, readPath, safeUrl, sectionN
 import './portfolio.css';
 
 export interface Editor {
- data: PortfolioData; editing: boolean; selected?: SectionKind;
+ data: PortfolioData; editing: boolean; selected?: SectionKind; mediaStatus?: string;
  change: (path: Path, value: unknown) => void;
  begin: () => void; finish: (cancel?: boolean) => void;
  open: (section: SectionKind) => void; moveSection: (section: SectionKind, direction: number) => void;
@@ -37,7 +40,7 @@ function Text({ path, multiline = false }: {path: Path; multiline?: boolean}) { 
 export function EditableMedia({ src, alt, section, className = '' }: {src: string; alt: string; section: SectionKind; className?:string}) {
  const editor = useContext(EditContext); const [failed,setFailed] = useState<string | null>(null);
  return <span className={`pk-media ${className}`} role={editor?.editing?'button':undefined} tabIndex={editor?.editing?0:undefined} aria-label={editor?.editing?`Edit ${alt}`:undefined} onClick={()=>editor?.editing&&editor.open(section)} onKeyDown={e=>{if(editor?.editing&&e.key==='Enter')editor.open(section);}}>
- <img src={failed===src || !safeUrl(src)?'/portfolio/motion.svg':src} alt={alt} loading="lazy" onError={()=>setFailed(src)} />{editor?.editing&&<span className="pk-media-hint"><Pencil size={12}/> Edit media</span>}
+ <img src={failed===src || !safeUrl(src)?'/portfolio/motion.svg':imageDisplayUrl(src)} alt={alt} loading="lazy" onError={()=>setFailed(src)} />{editor?.editing&&<span className="pk-media-hint"><Pencil size={12}/> Edit media</span>}
  </span>;
 }
 function DragItem({path,index,children,className=''}:{path:Path;index:number;children:ReactNode;className?:string}){
@@ -58,7 +61,7 @@ function Counter({metric}:{metric:string}){
 function ProjectDialog({project,onClose}:{project:Project|null;onClose:()=>void}){
  const ref=useRef<HTMLDialogElement>(null);
  useEffect(()=>{if(project){ref.current?.showModal();}else ref.current?.close();},[project]);
- return <dialog ref={ref} className="pk-project-dialog" onCancel={onClose} onClick={e=>{if(e.target===e.currentTarget)onClose();}}><button className="pk-dialog-close" aria-label="Close project" onClick={onClose}><X/></button>{project&&<><div className="pk-dialog-visual">{project.video&&safeUrl(project.video)?<video src={project.video} controls playsInline autoPlay poster={project.image} onError={e=>{e.currentTarget.insertAdjacentText('afterend','This video could not load. Check the media URL in Studio.');}}/>:<img src={safeUrl(project.image)||"/portfolio/motion.svg"} alt={project.title} onError={event=>{event.currentTarget.onerror=null;event.currentTarget.src="/portfolio/motion.svg";}}/>}</div><div className="pk-dialog-copy"><Kicker>{project.platform}</Kicker><h2>{project.title}</h2><p>{project.client} · {project.metric}</p><ProjectLinks project={project}/>{!project.video&&<p className="pk-sample-note">Concept artwork. Original reel footage can be added in PK Studio.</p>}</div></>}</dialog>;
+ return <dialog ref={ref} className="pk-project-dialog" onCancel={onClose} onClick={e=>{if(e.target===e.currentTarget)onClose();}}><button className="pk-dialog-close" aria-label="Close project" onClick={onClose}><X/></button>{project&&<><div className="pk-dialog-visual">{project.video&&videoEmbedUrl(project.video)?<iframe src={videoEmbedUrl(project.video)} title={project.title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen/>:project.video&&safeUrl(project.video)?<video src={project.video} controls playsInline autoPlay poster={imageDisplayUrl(safeUrl(project.image))} onError={e=>{e.currentTarget.insertAdjacentText('afterend','This video could not load. Check the media URL in Studio.');}}/>:<img src={imageDisplayUrl(safeUrl(project.image))||"/portfolio/motion.svg"} alt={project.title} onError={event=>{event.currentTarget.onerror=null;event.currentTarget.src="/portfolio/motion.svg";}}/>}</div><div className="pk-dialog-copy"><Kicker>{project.platform}</Kicker><h2>{project.title}</h2><p>{project.client} · {project.metric}</p><ProjectLinks project={project}/>{project.video&&safeUrl(project.video)&&<a href={safeUrl(project.video)} target="_blank" rel="noopener noreferrer">Open original video ↗</a>}{!project.video&&!/^[0-9a-f]{8}-/i.test(project.id)&&<p className="pk-sample-note">Concept artwork. Original reel footage can be added in PK Studio.</p>}</div></>}</dialog>;
 }
 function Hero(){
  const e=useContext(EditContext)!;const [offset,setOffset]=useState(0);const [paused,setPaused]=useState(false); const pointer=useRef<number|null>(null);
@@ -70,7 +73,7 @@ function Hero(){
  </div><div className="pk-hero-bottom"><span className="pk-mono">VIDEO · DESIGN · STORY</span><a href="#about" className="pk-scroll-medallion" aria-label="Scroll to About Me"><svg viewBox="0 0 130 70" aria-hidden><defs><path id="pk-curve" d="M 15,60 A 50,50 0 0,1 115,60"/></defs><text><textPath href="#pk-curve" startOffset="50%" textAnchor="middle">PORTFOLIO · SCROLL ·</textPath></text></svg><ArrowDown size={19}/><small>ME</small></a><span className="pk-availability"><i/><Text path={['hero','availability']}/></span></div></div>;
 }
 function About(){const e=useContext(EditContext)!;return <div className="pk-about pk-container"><div className="pk-about-copy pk-reveal"><Kicker><Text path={['about','kicker']}/></Kicker><h2><Text path={['about','headline']}/></h2><p><Text path={['about','bio']} multiline/></p><div className="pk-cta-row"><a className="pk-btn pk-olive" href={safeUrl(e.data.about.link1)} onClick={ev=>e.editing&&ev.preventDefault()}><Text path={['about','cta1']}/><ArrowUpRight size={16}/></a><a className="pk-btn pk-outline" href={safeUrl(e.data.about.link2)} onClick={ev=>e.editing&&ev.preventDefault()}><Text path={['about','cta2']}/><ArrowUpRight size={16}/></a></div></div><div className="pk-portrait-composition pk-reveal"><span className="pk-portrait-circle"/><span className="pk-portrait-ring"/><Crosshair className="pk-portrait-cross" size={25}/><span className="pk-portrait-tech pk-mono">24 FPS / 4K RAW / 9:16</span><EditableMedia className="pk-portrait" src={e.data.about.portrait} alt="Praveen Kumar Kuntolla in a charcoal hoodie" section="about"/><span className="pk-specialist"><Film size={20}/><Text path={['about','badge']}/></span><span className="pk-portrait-note pk-mono">FIG. 01 / THE CREATIVE BEHIND THE CUT<br/>VIDEO EDITOR &amp; CONTENT CREATIVE</span></div></div>;}
-function Works({openProject}:{openProject:(p:Project)=>void}){const e=useContext(EditContext)!;return <div className="pk-works"><div className="pk-container pk-works-heading pk-reveal"><div><Kicker>THE SHOWREEL, FRAME BY FRAME</Kicker><h2><Text path={['works','title']}/></h2><p><Text path={['works','subtitle']}/></p></div><span className="pk-mono">01 — 08 / SELECTED DIRECTION</span></div>{(['top','bottom'] as const).map(row=>{const items=e.data.works[row];return <div key={row} className={`pk-marquee pk-${row} shake-${e.data.works.shake}`} aria-label={`${row} reel gallery`}><div className="pk-marquee-track">{(e.editing?items:[...items,...items]).map((card,i)=>{const index=i%items.length;const clone=i>=items.length;return <DragItem key={`${card.id}-${i}`} path={['works',row]} index={index} className="pk-reel-wrap"><div className="pk-reel" style={{'--float-time':`${3+index*.45}s`,'--float-delay':`${-index*.9}s`,'--card-color':card.color} as CSSProperties}><img src={safeUrl(card.image)||'/portfolio/motion.svg'} alt={clone?'':card.title} loading="lazy" onError={ev=>{ev.currentTarget.onerror=null;ev.currentTarget.src='/portfolio/motion.svg';}}/><span className="pk-reel-index pk-mono">{String(index+1).padStart(2,'0')} / <Text path={['works',row,index,'platform']}/></span><button className="pk-play" tabIndex={clone?-1:0} aria-label={`${e.editing?'Edit':'View'} ${card.title}`} onClick={()=>e.editing?e.open('works'):openProject(card)}><Play size={20} fill="currentColor"/></button><div className="pk-reel-meta"><span className="pk-mono"><Text path={['works',row,index,'client']}/></span><h3><Text path={['works',row,index,'title']}/></h3><p><Text path={['works',row,index,'metric']}/><ArrowUpRight size={16}/></p><ProjectLinks project={card}/></div></div></DragItem>;})}</div></div>;})}<p className="pk-concept-caption pk-mono">CONCEPT ARTWORK / ORIGINAL FOOTAGE AVAILABLE TO ADD IN STUDIO</p></div>;}
+function Works({openProject}:{openProject:(p:Project)=>void}){const e=useContext(EditContext)!;return <div className="pk-works"><div className="pk-container pk-works-heading pk-reveal"><div><Kicker>THE SHOWREEL, FRAME BY FRAME</Kicker><h2><Text path={['works','title']}/></h2><p><Text path={['works','subtitle']}/></p></div><span className="pk-mono">SELECTED DIRECTION</span></div>{e.mediaStatus&&<p className="pk-container" role="status">{e.mediaStatus}</p>}{(['top','bottom'] as const).map(row=>{const items=e.data.works[row];return <div key={row} className={`pk-marquee pk-${row} shake-${e.data.works.shake}`} aria-label={`${row} reel gallery`}><div className="pk-marquee-track">{(e.editing?items:[...items,...items]).map((card,i)=>{const index=i%items.length;const clone=i>=items.length;return <DragItem key={`${card.id}-${i}`} path={['works',row]} index={index} className="pk-reel-wrap"><div className="pk-reel" style={{'--float-time':`${3+index*.45}s`,'--float-delay':`${-index*.9}s`,'--card-color':card.color} as CSSProperties}><img src={imageDisplayUrl(safeUrl(card.image))||'/portfolio/motion.svg'} alt={clone?'':card.title} loading="lazy" onError={ev=>{ev.currentTarget.onerror=null;ev.currentTarget.src='/portfolio/motion.svg';}}/><span className="pk-reel-index pk-mono">{String(index+1).padStart(2,'0')} / <Text path={['works',row,index,'platform']}/></span><button className="pk-play" tabIndex={clone?-1:0} aria-label={`${e.editing?'Edit':'View'} ${card.title}`} onClick={()=>e.editing?e.open('works'):openProject(card)}><Play size={20} fill="currentColor"/></button><div className="pk-reel-meta"><span className="pk-mono"><Text path={['works',row,index,'client']}/></span><h3><Text path={['works',row,index,'title']}/></h3><p><Text path={['works',row,index,'metric']}/><ArrowUpRight size={16}/></p><ProjectLinks project={card}/></div></div></DragItem>;})}</div></div>;})}<p className="pk-concept-caption pk-mono">{e.mediaStatus === undefined ? "CONCEPT ARTWORK / ORIGINAL FOOTAGE AVAILABLE TO ADD IN STUDIO" : "SELECTED MEDIA / IMAGE & VIDEO"}</p></div>;}
 function Impact(){const e=useContext(EditContext)!;return <div className="pk-container pk-impact"><div className="pk-centered pk-reveal"><Kicker><Text path={['impact','kicker']}/></Kicker><h2><Text path={['impact','title']}/></h2></div><div className="pk-stats-grid">{e.data.impact.items.map((s,i)=><DragItem key={s.id} path={['impact','items']} index={i} className="pk-stat pk-reveal"><strong>{e.editing?<Text path={['impact','items',i,'metric']}/>:<Counter metric={s.metric}/>}</strong><h3><Text path={['impact','items',i,'label']}/></h3><p><Text path={['impact','items',i,'description']}/></p></DragItem>)}</div></div>;}
 function Experience(){const e=useContext(EditContext)!;return <div className="pk-container pk-experience"><div className="pk-reveal"><Kicker><Text path={['experience','kicker']}/></Kicker><h2><Text path={['experience','title']}/></h2></div><div className="pk-jobs">{e.data.experience.items.map((job,i)=><DragItem key={job.id} path={['experience','items']} index={i} className="pk-job pk-reveal"><div className="pk-job-date"><Text path={['experience','items',i,'date']}/><p><MapPin size={13}/><Text path={['experience','items',i,'location']}/></p></div><div><h3><Text path={['experience','items',i,'company']}/>{job.present&&<span className="pk-present">PRESENT</span>}</h3><h4><Text path={['experience','items',i,'role']}/></h4><div className="pk-tags">{job.tags.map((tag,n)=><span key={n}><Text path={['experience','items',i,'tags',n]}/></span>)}</div></div></DragItem>)}</div><div className="pk-journey pk-reveal"><svg viewBox="0 0 900 100" preserveAspectRatio="none" aria-hidden><path d="M100 50 Q300 -25 450 50 T800 50" fill="none" stroke="#706852" strokeDasharray="3 7"/></svg>{e.data.experience.journey.map((node,i)=><div key={node.id}><span className="pk-mono"><Text path={['experience','journey',i,'code']}/></span><strong><Text path={['experience','journey',i,'country']}/></strong><small><Text path={['experience','journey',i,'caption']}/></small></div>)}</div></div>;}
 function Skills(){const e=useContext(EditContext)!;return <div className="pk-container pk-skills"><div className="pk-skills-heading pk-reveal"><Kicker><Text path={['skills','kicker']}/></Kicker><h2><Text path={['skills','title']}/></h2><span className="pk-skills-star" aria-hidden>✳</span></div><div className="pk-skill-grid">{e.data.skills.items.map((skill,i)=><DragItem key={skill.id} path={['skills','items']} index={i} className="pk-skill pk-reveal"><span className="pk-mono">/{String(i+1).padStart(2,'0')}</span><h3><Text path={['skills','items',i,'title']}/></h3><div className="pk-tags">{skill.tags.map((tag,n)=><span key={n}><Text path={['skills','items',i,'tags',n]}/></span>)}</div></DragItem>)}</div><div className="pk-credentials pk-reveal">{(['education','awards','mobility'] as const).map(key=><div key={key}><span className="pk-mono">{key==='education'?'EDUCATION':key==='awards'?'AWARDS & CERTIFICATIONS':'LANGUAGES & MOBILITY'}</span><p><Text path={['skills',key]}/></p></div>)}</div></div>;}
@@ -96,12 +99,49 @@ export function PortfolioCanvas({editor}:{editor:Editor}){
  const render=(id:SectionKind)=>{switch(id){case'hero':return <Hero/>;case'about':return <About/>;case'works':return <Works openProject={setProject}/>;case'impact':return <Impact/>;case'experience':return <Experience/>;case'skills':return <Skills/>;case'contact':return <Contact/>;}};
  return <EditContext.Provider value={editor}><div ref={root} onClickCapture={event=>{if(editor.editing)return;const anchor=(event.target as Element).closest('a');const href=anchor?.getAttribute('href');if(href&&/^#[\w-]+$/.test(href)){const target=href==='#top'?root.current:root.current?.querySelector(href);if(target){event.preventDefault();target.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});}}}} className={`pk-site ${editor.editing?'pk-edit-mode':'pk-live-mode'}`} id="top"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap"/><a className="pk-skip" href="#about">Skip to content</a><nav className="pk-site-nav"><Link className="pk-wordmark" href="/">pk<span>®</span></Link><div><a href="#works">Work</a><a href="#about">About</a><a href="#contact">Let’s talk <ArrowUpRight size={14}/></a><Link href="/studio" className="pk-back-office-nav">Back Office <ArrowUpRight size={12}/></Link></div><span className="pk-mono">CREATIVE PORTFOLIO / 2026</span></nav>{editor.data.sections.filter(s=>s.visible||editor.editing).map((s,i)=><section key={s.id} data-pk-layout={editor.editing?`section:${s.id}`:undefined} id={s.id} className={`pk-section pk-section-${s.id} ${!s.visible?'pk-hidden-section':''} ${editor.selected===s.id?'pk-section-selected':''}`} style={{'--section-index':i} as CSSProperties}>{editor.editing&&<div className="pk-section-pill"><button onClick={()=>editor.open(s.id)}><Pencil size={12}/>Edit {sectionNames[s.id].split('&')[0]}</button><button aria-label={`Move ${s.id} up`} disabled={i===0} onClick={()=>editor.moveSection(s.id,-1)}><ArrowUp size={12}/></button><button aria-label={`Move ${s.id} down`} disabled={i===6} onClick={()=>editor.moveSection(s.id,1)}><ArrowDown size={12}/></button>{['hero','works','experience','impact','skills'].includes(s.id)&&<button aria-label={`Add item to ${s.id}`} onClick={()=>editor.add(s.id)}><Plus size={12}/></button>}{!s.visible&&<span>Hidden from public</span>}</div>}{render(s.id)}</section>)}<ProjectDialog project={project} onClose={()=>setProject(null)}/></div></EditContext.Provider>;
 }
-export function PublicPortfolio(){const [data,setData]=useState(defaultPortfolio);useEffect(()=>{const load=()=>{try{const raw=localStorage.getItem(LIVE_KEY);setData(raw?parsePortfolio(raw):defaultPortfolio);}catch{setData(defaultPortfolio);}};load();window.addEventListener('storage',load);return()=>window.removeEventListener('storage',load);},[]);return <main className="pk-public-main"><PortfolioCanvas editor={{data,editing:false,change:()=>{},begin:()=>{},finish:()=>{},open:()=>{},moveSection:()=>{},add:()=>{},drop:()=>{}}}/></main>;}
-
-
-
-
-
-
-
+export function PublicPortfolio() {
+ const [data, setData] = useState(defaultPortfolio);
+ const [error, setError] = useState('');
+ const [mediaStatus, setMediaStatus] = useState<string | undefined>('Loading media…');
+ useEffect(() => {
+  let active = true;
+  let sequence = 0;
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+  const load = async () => {
+   const current = ++sequence;
+   let next = defaultPortfolio;
+   let contentError = '';
+   try {
+    if (local) {
+     const raw = localStorage.getItem(LIVE_KEY);
+     next = raw ? parsePortfolio(raw) : defaultPortfolio;
+    } else {
+     const response = await fetch('/api/portfolio/content', { cache: 'no-store' });
+     if (!response.ok) throw new Error('Published content could not load. Please refresh.');
+     next = parsePortfolio(JSON.stringify(await response.json()));
+    }
+   } catch { contentError = 'Published page content could not load. Please refresh.'; }
+   let status: string | undefined;
+   try {
+    const response = await fetch('/api/media-library', { cache: 'no-store' });
+    if (!response.ok) throw new Error('Media unavailable');
+    const body = await response.json();
+    if (body.configured) {
+     next = applyPublishedMedia(next, body.records);
+     status = body.records.length ? '' : 'No published media yet. Please check back soon.';
+    }
+   } catch {
+    next = applyPublishedMedia(next, []);
+    status = 'Media could not load. Refresh the page to retry.';
+   }
+   if (active && current === sequence) { setData(next); setError(contentError); setMediaStatus(status); }
+  };
+  void load();
+  window.addEventListener('storage', load);
+  window.addEventListener('focus', load);
+  const timer = window.setInterval(() => { if (!document.hidden) void load(); }, 60000);
+  return () => { active = false; clearInterval(timer); window.removeEventListener('storage', load); window.removeEventListener('focus', load); };
+ }, []);
+ return <main className="pk-public-main">{error&&<p role="alert">{error}</p>}<PortfolioCanvas editor={{data,mediaStatus,editing:false,change:()=>{},begin:()=>{},finish:()=>{},open:()=>{},moveSection:()=>{},add:()=>{},drop:()=>{}}}/></main>;
+}
 

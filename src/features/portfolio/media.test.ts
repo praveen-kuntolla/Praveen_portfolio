@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
+import { vi } from 'vitest';
 import { join } from 'node:path';
+vi.mock('@/features/back-office/server',async importOriginal=>({...await importOriginal<typeof import('@/features/back-office/server')>(),requirePermission:vi.fn().mockResolvedValue({})}));
 import { POST } from '@/app/api/portfolio/media/route';
 import { GET } from '@/app/api/portfolio/media/[id]/route';
 import { mediaFailure } from './media-server';

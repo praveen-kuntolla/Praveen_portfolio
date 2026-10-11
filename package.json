@@ -11,9 +11,13 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify": "npm run lint && npm test && npm run build"
+    "verify": "npm run lint && npm test && npm run build",
+    "auth:bootstrap": "node scripts/provision-super-admin.mjs"
   },
   "dependencies": {
+    "@netlify/blobs": "^11.1.3",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.3",
     "lucide-react": "^1.48.0",
     "next": "^16.3.6",
     "react": "^19.3.0",

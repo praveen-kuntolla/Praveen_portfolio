@@ -1,0 +1,24 @@
+// @vitest-environment node
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+const blobs=vi.hoisted(()=>new Map<string,{data:ArrayBuffer;metadata:Record<string,unknown>}>());
+vi.mock('@netlify/blobs',()=>({getStore:vi.fn(()=>({set:async(key:string,data:ArrayBuffer,options:{metadata:Record<string,unknown>})=>{blobs.set(key,{data,metadata:options.metadata});},getWithMetadata:async(key:string)=>blobs.get(key)||null,delete:async(key:string)=>{blobs.delete(key);}}))}));
+const access=vi.hoisted(()=>({requirePermission:vi.fn()}));
+vi.mock('@/features/back-office/server',()=>({requirePermission:access.requirePermission,requireSameOrigin:vi.fn()}));
+import { POST as upload } from '@/app/api/portfolio/media/route';
+import { GET as media } from '@/app/api/portfolio/media/[id]/route';
+import { GET as content, PUT as publish } from '@/app/api/portfolio/content/route';
+import { chunkSize } from './upload-chunks';
+import { defaultPortfolio } from './data';
+import { videoEmbedUrl } from './video-links';
+const req=(path:string,method='GET',body?:BodyInit,cookie?:string)=>new Request('https://portfolio.test/api/portfolio/'+path,{method,headers:{host:'portfolio.test',origin:'https://portfolio.test',...(cookie?{cookie}:{})},body});
+let cookie:string|undefined;
+beforeEach(()=>{vi.stubEnv('NETLIFY','true');blobs.clear();cookie=undefined;access.requirePermission.mockResolvedValue({});});
+afterEach(()=>vi.unstubAllEnvs());
+describe('hosted portfolio workflows',()=>{
+ it('requires Supabase permissions for hosted writes',async()=>{access.requirePermission.mockRejectedValueOnce(Object.assign(new Error('Sign in to continue.'),{status:401}));expect((await publish(req('content','PUT',JSON.stringify(defaultPortfolio)))).status).toBe(401);expect(access.requirePermission).toHaveBeenCalledWith('publish_content');});
+ it('persists card media and links for a separate anonymous reader',async()=>{const form=new FormData();form.set('file',new File(['cloud resume'],'resume.txt',{type:'text/plain'}));form.set('kind','document');const uploaded=await upload(req('media','POST',form,cookie));expect(uploaded.status).toBe(201);const metadata=await uploaded.json();const data=structuredClone(defaultPortfolio);data.works.top[0].video=metadata.url;data.works.top[0].links=[{id:'website',label:'Website',url:'https://example.com'}];expect((await publish(req('content','PUT',JSON.stringify(data),cookie))).status).toBe(200);const publicData=await (await content()).json();expect(publicData.works.top[0].links[0].url).toBe('https://example.com');const file=await media(req('media/'+metadata.id),{params:Promise.resolve({id:metadata.id})});expect(file.status).toBe(200);expect(await file.text()).toBe('cloud resume');expect([...blobs.keys()]).toContain('published');expect([...blobs.keys()]).toContain('media/'+metadata.id);});
+ it('uploads multiple bounded chunks and cleans staging data after assembly',async()=>{const bytes=new Uint8Array(chunkSize+5).fill(65);const id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';let saved;for(let part=0;part<2;part++){const form=new FormData();form.set('file',new File([bytes.slice(part*chunkSize,(part+1)*chunkSize)],'chunk'));for(const[key,value]of Object.entries({uploadId:id,part,total:2,size:bytes.length,name:'large.txt',mime:'text/plain',kind:'document'}))form.set(key,String(value));const response=await upload(req('media','POST',form,cookie));expect(response.status).toBe(200);saved=await response.json();if(part===0)expect(saved.pending).toBe(true);}expect(saved.url).toMatch(/^\/api\/portfolio\/media\//);expect([...blobs.keys()].some(key=>key.startsWith('uploads/'))).toBe(false);});
+ it('rejects forged chunks and invalid published links',async()=>{const form=new FormData();form.set('uploadId','../../outside');expect((await upload(req('media','POST',form,cookie))).status).toBe(400);const data=structuredClone(defaultPortfolio);data.works.top[0].links=[{id:'bad',label:'bad',url:'javascript:alert(1)'}];expect((await publish(req('content','PUT',JSON.stringify(data),cookie))).status).toBe(400);});
+ it('enforces permission revocation on the next request',async()=>{access.requirePermission.mockRejectedValueOnce(Object.assign(new Error('Back-office access has been revoked.'),{status:403}));expect((await publish(req('content','PUT',JSON.stringify(defaultPortfolio)))).status).toBe(403);});
+ it('converts supported video page links to safe embed URLs',()=>{expect(videoEmbedUrl('https://youtu.be/dQw4w9WgXcQ')).toBe('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ');expect(videoEmbedUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toContain('/embed/');expect(videoEmbedUrl('https://vimeo.com/123456')).toBe('https://player.vimeo.com/video/123456');expect(videoEmbedUrl('https://drive.google.com/file/d/abc_123/view')).toBe('https://drive.google.com/file/d/abc_123/preview');expect(videoEmbedUrl('https://youtube.com.evil.test/watch?v=dQw4w9WgXcQ')).toBe('');});
+});

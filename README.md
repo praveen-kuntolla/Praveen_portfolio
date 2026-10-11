@@ -60,3 +60,10 @@ Device uploads currently require the local server and store files in `.portfolio
 A local `npm run verify` success checks the application, not the Netlify adapter deployment. Confirm Netlify's build completes and check `/`, `/studio`, the About portrait, links, project dialogs and CV after the first deploy. If the build omits TypeScript or other dev dependencies, remove a custom `NODE_ENV=production` or npm omit-dev setting from the build environment.
 
 Official references: [Next.js on Netlify](https://docs.netlify.com/build/frameworks/framework-setup-guides/nextjs/overview/), [Next build settings](https://docs.netlify.com/snippets/frameworks/nextjs-config-values/), and [Node.js version configuration](https://docs.netlify.com/build/configure-builds/manage-dependencies/).
+
+## Supabase media library
+Shared image/video URL publishing is now available at /studio/media. Follow [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for the environment, additive SQL migration, owner-provisioned administrators and verification. Configuring Supabase makes the public Selected Works gallery read published database records; the existing visual Studio continues to manage other portfolio content.
+
+## Back-office accounts
+
+Signup, login, password recovery, permission-scoped administrators, invitations, revocation and audit history are documented in [BACK_OFFICE_AUTH_SETUP.md](BACK_OFFICE_AUTH_SETUP.md). Run its second migration and one-time super-admin command before using the protected Studio routes.
