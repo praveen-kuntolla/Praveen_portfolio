@@ -1,16 +1,26 @@
 import { createClient } from '@supabase/supabase-js';
-import { createInterface } from 'node:readline/promises';
 import process from 'node:process';
 try { process.loadEnvFile('.env.local'); } catch {}
 const url=process.env.NEXT_PUBLIC_SUPABASE_URL;const publicKey=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;const secret=process.env.SUPABASE_SECRET_KEY;
 if(!url||!publicKey||!secret)throw new Error('Set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY and SUPABASE_SECRET_KEY in .env.local first.');
-const rl=createInterface({input:process.stdin,output:process.stdout});
-const email=(await rl.question('Super-admin email: ')).trim().toLowerCase();
-rl.close();if(!/^\S+@\S+\.\S+$/.test(email))throw new Error('Enter a valid email address.');
-process.stdout.write('Password (input hidden): ');let password='';
-if(process.stdin.isTTY)process.stdin.setRawMode(true);process.stdin.resume();
-await new Promise(resolve=>process.stdin.on('data',chunk=>{const text=chunk.toString();for(const char of text){if(char==='\r'||char==='\n'){process.stdout.write('\n');resolve();return;}if(char==='\u0003')process.exit(130);if(char==='\u007f'||char==='\b')password=password.slice(0,-1);else password+=char;}}));
-if(process.stdin.isTTY)process.stdin.setRawMode(false);process.stdin.pause();if(password.length<6)throw new Error('Password must contain at least 6 characters or meet your stricter Supabase policy.');
+async function promptLine(label,{hidden=false}={}){
+ process.stdout.write(label);let value='';const input=process.stdin;const raw=!!input.isTTY;
+ if(raw)input.setRawMode(true);input.resume();
+ return await new Promise((resolve,reject)=>{
+  const cleanup=()=>{input.off('data',onData);if(raw)input.setRawMode(false);input.pause();};
+  const onData=chunk=>{for(const char of chunk.toString()){
+   if(char==='\u0003'){cleanup();process.stdout.write('\n');reject(new Error('Cancelled.'));return;}
+   if(char==='\r'||char==='\n'){cleanup();process.stdout.write('\n');resolve(value);return;}
+   if(char==='\u007f'||char==='\b'){if(value){value=value.slice(0,-1);if(!hidden)process.stdout.write('\b \b');}continue;}
+   value+=char;if(!hidden)process.stdout.write(char);
+  }};
+  input.on('data',onData);
+ });
+}
+const email=(await promptLine('Super-admin email: ')).trim().toLowerCase();
+if(!/^\S+@\S+\.\S+$/.test(email))throw new Error('Enter a valid email address.');
+const password=await promptLine('Password (input hidden): ',{hidden:true});
+if(password.length<6)throw new Error('Password must contain at least 6 characters or meet your stricter Supabase policy.');
 const admin=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});const publicClient=createClient(url,publicKey,{auth:{persistSession:false,autoRefreshToken:false}});
 const {data:existingSupers,error:superError}=await admin.from('back_office_access').select('user_id,email').eq('role','super_admin').eq('status','active');if(superError)throw new Error('Run migration 202610110002_back_office_auth.sql first.');
 if(existingSupers?.length&&!existingSupers.some(row=>row.email===email))throw new Error('A different active super administrator already exists. This bootstrap command will not replace it.');
